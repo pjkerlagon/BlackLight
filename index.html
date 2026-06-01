@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c0d0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BlackLight</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230c0d0e'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%23f5a623' stroke-width='5'/%3E%3Ccircle cx='50' cy='50' r='9' fill='%23f5a623'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0d0e;
+    --bg2:#15120b;
+    --ink:#e9e4d8;
+    --dim:#6f6a5e;
+    --amber:#f5a623;
+    --amber-deep:#c9831a;
+    --red:#ff3b30;
+    --line:#26241f;
+    --panel:#121110;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'IBM Plex Mono',monospace;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1c1810 0%, var(--bg) 55%, #000 100%);
+    color:var(--ink);
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    position:relative;
+    transition:background .5s ease;
+    user-select:none;
+  }
+  body.live{
+    background:
+      radial-gradient(130% 90% at 50% 0%, #2a2210 0%, #0e0c07 60%, #000 100%);
+  }
+  /* grain */
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  /* hazard edges */
+  .hazard{position:fixed;left:0;right:0;height:9px;z-index:5;
+    background:repeating-linear-gradient(45deg,var(--amber) 0 14px,#0c0d0e 14px 28px);
+    opacity:.5;filter:saturate(.8)}
+  .hazard.top{top:0}
+  .hazard.bottom{bottom:0;transform:scaleX(-1)}
+
+  header{
+    padding:26px 22px 8px;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    z-index:6;
+  }
+  .brand{line-height:1}
+  .brand h1{
+    font-family:'Bebas Neue',sans-serif;font-weight:400;
+    font-size:34px;letter-spacing:3px;color:var(--ink);
+  }
+  .brand .sub{font-size:9.5px;letter-spacing:3.5px;color:var(--dim);margin-top:3px}
+  .serial{text-align:right;font-size:9.5px;letter-spacing:1.5px;color:var(--dim);line-height:1.7}
+  .serial b{color:var(--amber);font-weight:600}
+
+  main{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:0 22px;z-index:6;gap:30px;
+  }
+
+  /* the detector */
+  .device{position:relative;width:min(72vw,290px);aspect-ratio:1;cursor:pointer;}
+  .device .ring{
+    position:absolute;inset:0;border-radius:50%;
+    background:conic-gradient(from 0deg,#1a1813,#0f0e0c,#201d16,#0f0e0c,#1a1813);
+    box-shadow:
+      inset 0 2px 6px rgba(255,255,255,.06),
+      inset 0 -10px 30px rgba(0,0,0,.8),
+      0 24px 60px rgba(0,0,0,.6);
+    border:1px solid #2b281f;
+  }
+  .device .ring2{
+    position:absolute;inset:10%;border-radius:50%;
+    background:radial-gradient(circle at 50% 38%,#1a1812,#0c0b08 70%);
+    border:1px solid #211e17;
+    box-shadow:inset 0 4px 16px rgba(0,0,0,.7);
+    /* vent dots */
+    -webkit-mask:radial-gradient(circle,#000 99%,transparent) ;
+  }
+  /* grille of dots */
+  .grille{position:absolute;inset:14%;border-radius:50%;overflow:hidden;
+    background:
+      radial-gradient(circle, #000 1.4px, transparent 1.8px) 0 0/15px 15px,
+      radial-gradient(circle, #000 1.4px, transparent 1.8px) 7.5px 7.5px/15px 15px;
+    opacity:.5;
+  }
+  .core{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:42%;aspect-ratio:1;border-radius:50%;
+    background:radial-gradient(circle at 50% 35%,#2a261c,#131109 75%);
+    border:1px solid #363124;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    box-shadow:inset 0 3px 10px rgba(255,255,255,.05),inset 0 -8px 18px rgba(0,0,0,.7),0 6px 16px rgba(0,0,0,.5);
+    transition:transform .08s ease, box-shadow .3s ease;
+  }
+  .device:active .core{transform:translate(-50%,-50%) scale(.965)}
+  .core .label{font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,7vw,30px);letter-spacing:2px;color:var(--dim);transition:color .3s}
+  .core .hint{font-size:8px;letter-spacing:2px;color:#4b463c}
+  /* LED */
+  .led{
+    position:absolute;top:11%;left:50%;transform:translateX(-50%);
+    width:11px;height:11px;border-radius:50%;
+    background:#3a1512;border:1px solid #511c18;
+    box-shadow:inset 0 0 3px #000;
+    transition:none;
+  }
+  .led.green{background:#1d3a1a;border-color:#2a5226}
+
+  /* ACTIVE state */
+  body.live .core{
+    background:radial-gradient(circle at 50% 35%,#6a4d10,#3a2906 78%);
+    box-shadow:inset 0 0 18px rgba(245,166,35,.5),0 0 50px rgba(245,166,35,.35),0 6px 16px rgba(0,0,0,.5);
+  }
+  body.live .core .label{color:#1a1407}
+  body.live .ring{border-color:#5a4a23}
+
+  /* readout panel */
+  .panel{
+    width:min(92vw,360px);
+    background:linear-gradient(180deg,#131211,#0d0c0b);
+    border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:11px 16px;
+    box-shadow:0 12px 30px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .stat .k{font-size:8.5px;letter-spacing:2px;color:var(--dim)}
+  .stat .v{font-size:14px;letter-spacing:1px;color:var(--ink);margin-top:3px;font-weight:500;display:flex;align-items:center;gap:7px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);box-shadow:0 0 6px transparent}
+  .dot.on{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+  .dot.alert{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+  /* controls */
+  .controls{width:min(92vw,360px);display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;align-items:center;justify-content:space-between;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .row .lab{font-size:11px;letter-spacing:1px}
+  .row .desc{font-size:8.5px;color:var(--dim);margin-top:2px;letter-spacing:.5px}
+  .sw{width:46px;height:26px;border-radius:20px;background:#211e18;border:1px solid #322e25;position:relative;transition:background .25s;flex:none}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#5a554a;transition:all .25s}
+  .sw.on{background:var(--amber-deep)}
+  .sw.on::after{left:22px;background:#1a1407}
+  .step{display:flex;align-items:center;gap:12px}
+  .step button{width:30px;height:30px;border-radius:8px;border:1px solid #322e25;background:#211e18;color:var(--ink);font-size:16px;font-family:inherit;cursor:pointer}
+  .step button:active{background:#2c2820}
+  .step .num{min-width:54px;text-align:center;font-size:13px;color:var(--amber);font-weight:600}
+
+  .share{
+    width:min(92vw,360px);margin-top:2px;
+    border:none;border-radius:11px;padding:15px;cursor:pointer;
+    font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:18px;
+    background:linear-gradient(180deg,var(--amber),var(--amber-deep));color:#1a1407;
+    box-shadow:0 8px 22px rgba(245,166,35,.25);
+  }
+  .share:active{transform:translateY(1px)}
+
+  footer{padding:10px 22px 26px;text-align:center;z-index:6}
+  footer p{font-size:8.5px;color:var(--dim);letter-spacing:1px;line-height:1.7}
+
+  /* screen-light fallback overlay */
+  #beam{position:fixed;inset:0;background:#fff;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+  #beam.show{display:flex}
+  #beam .tap{font-family:'Bebas Neue',sans-serif;letter-spacing:3px;color:#111;font-size:26px}
+  #beam .note{font-size:11px;color:#444;letter-spacing:1px;max-width:240px;text-align:center;line-height:1.6}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(20px);
+    background:#1c1a15;border:1px solid var(--line);color:var(--ink);
+    padding:11px 18px;border-radius:30px;font-size:11px;letter-spacing:1px;z-index:60;
+    opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .scroll{flex:1;overflow-y:auto;width:100%;display:flex;flex-direction:column;align-items:center;
+    -webkit-overflow-scrolling:touch}
+  @media (max-height:760px){ main{gap:18px;padding-top:8px;padding-bottom:8px} }
+</style>
+</head>
+<body>
+<div class="hazard top"></div>
+<div class="hazard bottom"></div>
+
+<div class="scroll">
+<header>
+  <div class="brand">
+    <h1>BLACKLIGHT</h1>
+    <div class="sub">PORTABLE&nbsp;·&nbsp;ILLUMINATION&nbsp;UNIT</div>
+  </div>
+  <div class="serial">
+    UNIT&nbsp;<b>BL&#8209;01</b><br>
+    BATT&nbsp;<b id="batt">LOW</b><br>
+    <span id="clock">--:--</span>
+  </div>
+</header>
+
+<main>
+  <div class="device" id="device" role="button" aria-label="Power">
+    <div class="ring"></div>
+    <div class="ring2"></div>
+    <div class="grille"></div>
+    <div class="led" id="led"></div>
+    <div class="core">
+      <div class="label" id="coreLabel">PRESS</div>
+      <div class="hint">TO ACTIVATE</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="stat"><div class="k">STATUS</div><div class="v"><span class="dot" id="dStatus"></span><span id="vStatus">STANDBY</span></div></div>
+    <div class="stat"><div class="k">LIGHT MODE</div><div class="v"><span id="vMode">—</span></div></div>
+    <div class="stat"><div class="k">ALERT</div><div class="v"><span class="dot" id="dAlert"></span><span id="vAlert">SILENT</span></div></div>
+    <div class="stat"><div class="k">CHIRPS</div><div class="v"><span id="vCount">0</span></div></div>
+  </div>
+
+  <div class="controls">
+    <div class="row" id="rowRealistic">
+      <div>
+        <div class="lab">DYING-BATTERY MODE</div>
+        <div class="desc">Keep chirping while the light is on</div>
+      </div>
+      <div class="sw" id="swRealistic"></div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="lab">CHIRP INTERVAL</div>
+        <div class="desc">Seconds between chirps</div>
+      </div>
+      <div class="step">
+        <button id="minus">−</button>
+        <div class="num"><span id="interval">30</span>s</div>
+        <button id="plus">+</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="share" id="shareBtn">⇪ SHARE THIS APP</button>
+
+  <footer>
+    <p id="foot">TAP THE UNIT TO TOGGLE THE FLASHLIGHT.<br>EACH ACTIVATION EMITS A SMOKE-DETECTOR CHIRP.</p>
+  </footer>
+</main>
+</div>
+
+<div id="beam">
+  <div class="tap">SCREEN LIGHT</div>
+  <div class="note">Your browser can't reach the camera flash here, so the screen is your light. Tap anywhere to turn off.</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- state ----------
+  let on = false;
+  let track = null, stream = null;
+  let usingTorch = false;
+  let chirpTimer = null;
+  let chirpCount = 0;
+  let realistic = true;
+  let interval = 30;
+  let ac = null; // AudioContext
+
+  // ---------- elements ----------
+  const $ = id => document.getElementById(id);
+  const device = $('device');
+  const body = document.body;
+  const led = $('led');
+  const coreLabel = $('coreLabel');
+  const vStatus = $('vStatus'), dStatus = $('dStatus');
+  const vMode = $('vMode');
+  const vAlert = $('vAlert'), dAlert = $('dAlert');
+  const vCount = $('vCount');
+  const swRealistic = $('swRealistic');
+  const intervalEl = $('interval');
+  const beam = $('beam');
+  const toast = $('toast');
+
+  swRealistic.classList.toggle('on', realistic);
+
+  // ---------- clock ----------
+  const tick = () => {
+    const d = new Date();
+    $('clock').textContent =
+      String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  };
+  tick(); setInterval(tick, 15000);
+
+  // ---------- toast ----------
+  let toastT;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(()=>toast.classList.remove('show'), 2600);
+  }
+
+  // ---------- the chirp (synthesized piezo-style "low battery" beep) ----------
+  function ensureAudio(){
+    if(!ac){
+      const C = window.AudioContext || window.webkitAudioContext;
+      ac = new C();
+    }
+    if(ac.state === 'suspended') ac.resume();
+  }
+
+  function chirp(){
+    ensureAudio();
+    const t = ac.currentTime;
+    const master = ac.createGain();
+    master.gain.value = 0.0001;
+    master.connect(ac.destination);
+
+    // harsh, piercing square pair — like a piezo buzzer
+    const o1 = ac.createOscillator();
+    const o2 = ac.createOscillator();
+    o1.type = 'square'; o2.type = 'square';
+    o1.frequency.setValueAtTime(3100, t);
+    o2.frequency.setValueAtTime(3145, t); // slight detune => beating / harshness
+    o1.connect(master); o2.connect(master);
+
+    // very fast attack, short hold, fast decay (~110ms)
+    master.gain.setValueAtTime(0.0001, t);
+    master.gain.exponentialRampToValueAtTime(0.5, t + 0.004);
+    master.gain.setValueAtTime(0.5, t + 0.085);
+    master.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+
+    o1.start(t); o2.start(t);
+    o1.stop(t + 0.13); o2.stop(t + 0.13);
+
+    // visual alert pulse
+    chirpCount++;
+    vCount.textContent = chirpCount;
+    flashAlert();
+  }
+
+  function flashAlert(){
+    led.style.background = '#ff4b40';
+    led.style.boxShadow = '0 0 14px #ff3b30, 0 0 4px #fff inset';
+    dAlert.classList.add('alert');
+    vAlert.textContent = 'CHIRP';
+    setTimeout(()=>{
+      if(on){
+        led.style.background = ''; led.style.boxShadow = '';
+        led.classList.add('green');
+      } else {
+        led.classList.remove('green');
+        led.style.background = ''; led.style.boxShadow = '';
+      }
+      dAlert.classList.remove('alert');
+      vAlert.textContent = on ? 'ARMED' : 'SILENT';
+    }, 150);
+  }
+
+  // ---------- flashlight ----------
+  async function lightOn(){
+    let torchWorked = false;
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({
+          video:{ facingMode:{ ideal:'environment' } }
+        });
+        track = stream.getVideoTracks()[0];
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if(caps && caps.torch){
+          await track.applyConstraints({ advanced:[{ torch:true }] });
+          torchWorked = true;
+        }
+      }catch(e){
+        // permission denied or no camera — fall through to screen light
+      }
+    }
+
+    if(torchWorked){
+      usingTorch = true;
+      vMode.textContent = 'CAMERA FLASH';
+    } else {
+      // clean up any half-opened stream
+      if(track){ track.stop(); track=null; }
+      if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+      usingTorch = false;
+      vMode.textContent = 'SCREEN LIGHT';
+      beam.classList.add('show');
+    }
+  }
+
+  function lightOff(){
+    if(usingTorch && track){
+      try{ track.applyConstraints({ advanced:[{ torch:false }] }); }catch(e){}
+    }
+    if(track){ track.stop(); track=null; }
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    usingTorch = false;
+    beam.classList.remove('show');
+    vMode.textContent = '—';
+  }
+
+  // ---------- toggle ----------
+  async function toggle(){
+    if(!on){
+      on = true;
+      // chirp immediately on the user gesture (every activation)
+      chirp();
+      body.classList.add('live');
+      coreLabel.textContent = 'ON';
+      vStatus.textContent = 'ACTIVE';
+      dStatus.classList.add('on');
+      vAlert.textContent = 'ARMED';
+      led.classList.add('green');
+      await lightOn();
+      startRealistic();
+    } else {
+      on = false;
+      stopRealistic();
+      lightOff();
+      body.classList.remove('live');
+      coreLabel.textContent = 'PRESS';
+      vStatus.textContent = 'STANDBY';
+      dStatus.classList.remove('on');
+      vAlert.textContent = 'SILENT';
+      led.classList.remove('green');
+      led.style.background=''; led.style.boxShadow='';
+    }
+  }
+
+  function startRealistic(){
+    stopRealistic();
+    if(realistic){
+      chirpTimer = setInterval(()=>{ if(on) chirp(); }, interval*1000);
+    }
+  }
+  function stopRealistic(){
+    if(chirpTimer){ clearInterval(chirpTimer); chirpTimer=null; }
+  }
+
+  // ---------- wire up ----------
+  device.addEventListener('click', toggle);
+
+  beam.addEventListener('click', ()=>{ if(on) toggle(); });
+
+  swRealistic.addEventListener('click', ()=>{
+    realistic = !realistic;
+    swRealistic.classList.toggle('on', realistic);
+    if(on) startRealistic();
+    showToast(realistic ? 'Dying-battery mode ON' : 'Dying-battery mode OFF');
+  });
+
+  $('plus').addEventListener('click', ()=>{
+    interval = Math.min(120, interval+5);
+    intervalEl.textContent = interval;
+    if(on) startRealistic();
+  });
+  $('minus').addEventListener('click', ()=>{
+    interval = Math.max(5, interval-5);
+    intervalEl.textContent = interval;
+    if(on) startRealistic();
+  });
+
+  // ---------- share ----------
+  $('shareBtn').addEventListener('click', async ()=>{
+    const data = {
+      title: 'BlackLight',
+      text: 'A flashlight that chirps like a dying smoke detector. Open it on your phone:',
+      url: location.href
+    };
+    if(navigator.share){
+      try{ await navigator.share(data); }catch(e){}
+    } else if(navigator.clipboard){
+      try{
+        await navigator.clipboard.writeText(location.href);
+        showToast('Link copied to clipboard');
+      }catch(e){ showToast('Copy the page URL to share'); }
+    } else {
+      showToast('Copy the page URL to share');
+    }
+  });
+
+  // free the camera if the tab is hidden / closed
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden && on) toggle();
+  });
+  window.addEventListener('pagehide', lightOff);
+
+  // hint if not on a secure origin (camera flash needs https)
+  if(!window.isSecureContext && location.protocol !== 'http:'){
+    $('foot').innerHTML =
+      'OPENED AS A LOCAL FILE — CAMERA FLASH IS BLOCKED, SO IT FALLS BACK TO SCREEN LIGHT.<br>HOST IT OVER HTTPS FOR THE REAL FLASH.';
+  } else if(location.protocol === 'file:'){
+    $('foot').innerHTML =
+      'LOCAL FILE: SCREEN-LIGHT MODE ONLY. HOST OVER HTTPS FOR CAMERA FLASH.';
+  }
+})();
+</script>
+</body>
+</html>
