@@ -1,0 +1,263 @@
+name: Build BlackLight APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # lets you trigger it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ── 1. Get the repo files (includes your uploaded index.html) ────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Java ──────────────────────────────────────────────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── 3. Gradle ────────────────────────────────────────────────────────
+      - name: Install Gradle 8.7
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip
+          unzip -q gradle-8.7-bin.zip -d $HOME
+          echo "$HOME/gradle-8.7/bin" >> $GITHUB_PATH
+
+      # ── 4. Android SDK ───────────────────────────────────────────────────
+      - name: Install Android SDK components
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      # ── 5. Create all project files ──────────────────────────────────────
+      - name: Create directory structure
+        run: |
+          mkdir -p app/src/main/java/com/blacklight/app
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+      - name: Move HTML into assets
+        run: |
+          # Works whether the user uploaded it as index.html or blacklight.html
+          HTML=$(ls *.html 2>/dev/null | head -1)
+          if [ -z "$HTML" ]; then
+            echo "ERROR: No .html file found in repo root. Upload index.html first." >&2
+            exit 1
+          fi
+          cp "$HTML" app/src/main/assets/index.html
+          echo "Copied $HTML → app/src/main/assets/index.html"
+
+      - name: Write settings.gradle
+        run: |
+          cat > settings.gradle << 'ENDSETTINGS'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "BlackLight"
+          include ':app'
+          ENDSETTINGS
+
+      - name: Write root build.gradle
+        run: |
+          cat > build.gradle << 'ENDROOT'
+          plugins {
+              id 'com.android.application' version '8.3.2' apply false
+          }
+          ENDROOT
+
+      - name: Write app/build.gradle
+        run: |
+          cat > app/build.gradle << 'ENDAPP'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.blacklight.app'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.blacklight.app"
+                  minSdk 23
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  debug { debuggable true }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          dependencies {}
+          ENDAPP
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Write AndroidManifest.xml
+        run: |
+          cat > app/src/main/AndroidManifest.xml << 'ENDMANIFEST'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
+              <application
+                  android:allowBackup="false"
+                  android:icon="@drawable/ic_launcher"
+                  android:label="BlackLight"
+                  android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:screenOrientation="portrait"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          ENDMANIFEST
+
+      - name: Write MainActivity.java
+        run: |
+          cat > app/src/main/java/com/blacklight/app/MainActivity.java << 'ENDJAVA'
+          package com.blacklight.app;
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.Context;
+          import android.content.pm.PackageManager;
+          import android.hardware.camera2.CameraAccessException;
+          import android.hardware.camera2.CameraManager;
+          import android.os.Bundle;
+          import android.view.Window;
+          import android.view.WindowManager;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.PermissionRequest;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              private WebView webView;
+              private CameraManager cameraManager;
+              private String cameraId;
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  requestWindowFeature(Window.FEATURE_NO_TITLE);
+                  getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                                       WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                  getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                  cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+                  try {
+                      String[] ids = cameraManager.getCameraIdList();
+                      if (ids.length > 0) cameraId = ids[0];
+                  } catch (CameraAccessException e) { cameraId = null; }
+                  webView = new WebView(this);
+                  setContentView(webView);
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+                  webView.addJavascriptInterface(new TorchBridge(), "Android");
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public void onPermissionRequest(PermissionRequest request) {
+                          request.grant(request.getResources());
+                      }
+                  });
+                  webView.loadUrl("file:///android_asset/index.html");
+                  if (checkSelfPermission(Manifest.permission.CAMERA)
+                          != PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
+                  }
+              }
+              @Override protected void onPause() {
+                  super.onPause();
+                  setTorchSafe(false);
+                  if (webView != null)
+                      webView.evaluateJavascript(
+                          "if(typeof window.turnOff==='function')window.turnOff();", null);
+              }
+              @Override protected void onDestroy() {
+                  super.onDestroy();
+                  setTorchSafe(false);
+              }
+              private void setTorchSafe(boolean on) {
+                  if (cameraManager == null || cameraId == null) return;
+                  try { cameraManager.setTorchMode(cameraId, on); }
+                  catch (CameraAccessException | IllegalArgumentException e) {}
+              }
+              public class TorchBridge {
+                  @JavascriptInterface
+                  public void setTorch(boolean on) { setTorchSafe(on); }
+                  @JavascriptInterface
+                  public boolean hasTorch() {
+                      return getPackageManager()
+                          .hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH);
+                  }
+              }
+          }
+          ENDJAVA
+
+      - name: Write launcher icon
+        run: |
+          cat > app/src/main/res/drawable/ic_launcher.xml << 'ENDICON'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="48dp" android:height="48dp"
+              android:viewportWidth="48" android:viewportHeight="48">
+              <path android:fillColor="#0C0D0E"
+                  android:pathData="M0,0L48,0L48,48L0,48Z"/>
+              <path android:fillColor="#F5A623"
+                  android:pathData="M24,6C35,6,42,13,42,24C42,35,35,42,24,42C13,42,6,35,6,24C6,13,13,6,24,6ZM24,13C17.4,13,13,17.4,13,24C13,30.6,17.4,35,24,35C30.6,35,35,30.6,35,24C35,17.4,30.6,13,24,13Z"/>
+              <path android:fillColor="#F5A623"
+                  android:pathData="M24,19C21.2,19,19,21.2,19,24C19,26.8,21.2,29,24,29C26.8,29,29,26.8,29,24C29,21.2,26.8,19,24,19Z"/>
+          </vector>
+          ENDICON
+
+      - name: Write strings.xml
+        run: |
+          cat > app/src/main/res/values/strings.xml << 'ENDSTRINGS'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">BlackLight</string>
+          </resources>
+          ENDSTRINGS
+
+      # ── 6. Build ─────────────────────────────────────────────────────────
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      # ── 7. Upload APK so you can download it ─────────────────────────────
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlackLight-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
